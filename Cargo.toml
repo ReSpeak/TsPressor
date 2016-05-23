@@ -1,0 +1,20 @@
+[package]
+name = "tspressor"
+version = "0.1.0"
+authors = ["Splamy <splamyn@gmail.com>"]
+
+[lib]
+name = "tspressor"
+crate-type = ["dylib"]
+
+[dependencies]
+lazy_static = "*"
+#xz2 = "0.1"
+rustc-serialize = "0.3"
+#clipboard = "0.1.1"
+bzip2 = "0.3.0"
+
+[dependencies.ts3plugin]
+git = "https://github.com/Flakebi/rust-ts3plugin"
+[dependencies.clipboard]
+git = "https://github.com/aweinstock314/rust-clipboard"
