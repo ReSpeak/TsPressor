@@ -102,17 +102,18 @@ impl Plugin for MyTsPlugin {
                     } else {
                         api.log_or_print("failed to get clip", "tspressor", LogLevel::Info);
                     }
+                    return true;
                 }
             } else {
                 if let Some(decomp_str) = ts3decompress(&message) {
                     api.print_message(decomp_str);
+                    return true;
                 }
             }
-            false
         } else {
             api.log_or_print("Message from no server", "tspressor", LogLevel::Info);
-            true
         }
+        false
     }
 
     fn shutdown(&mut self, _: &TsApi) {
