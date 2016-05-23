@@ -7,6 +7,9 @@ authors = ["Splamy <splamyn@gmail.com>"]
 name = "tspressor"
 crate-type = ["dylib"]
 
+[profile.release]
+lto = true
+
 [dependencies]
 lazy_static = "*"
 #xz2 = "0.1"
