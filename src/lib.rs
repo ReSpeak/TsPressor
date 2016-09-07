@@ -2,34 +2,32 @@
 extern crate ts3plugin;
 #[macro_use]
 extern crate lazy_static;
+extern crate base64;
+extern crate brotli2;
 extern crate clipboard;
-extern crate rustc_serialize;
-extern crate bzip2;
 
-use ts3plugin::*;
-use clipboard::*;
 use std::io::prelude::*;
-use bzip2::Compression;
-use bzip2::read::{BzEncoder, BzDecoder};
-use rustc_serialize::base64::{FromBase64, ToBase64, STANDARD};
+use brotli2::read::{BrotliEncoder, BrotliDecoder};
+use clipboard::*;
+use ts3plugin::*;
 
-struct MyTsPlugin;
+struct TsPressor;
 
-fn ts3compress(inp: &str) -> Option<String> {
-    let bytes = inp.as_bytes();
-    let mut compressor = BzEncoder::new(bytes, Compression::Best);
+fn ts3compress(input: &str) -> Option<String> {
+    let mut compressor = BrotliEncoder::new(input.as_bytes(), 9);
 
-    let mut buf: Vec<u8> = Vec::new();
+    let mut buf = Vec::new();
     if let Err(_) = compressor.read_to_end(&mut buf) {
-        return None;
+        None
+    } else {
+        Some(base64::encode(buf.as_slice()))
     }
-    Some(buf.as_slice().to_base64(STANDARD))
 }
 
-fn ts3decompress(inp: &str) -> Option<String> {
-    match inp.from_base64() {
+fn ts3decompress(input: &str) -> Option<String> {
+    match base64::decode(input) {
         Ok(bytes) => {
-            let mut decompressor = BzDecoder::new(bytes.as_slice());
+            let mut decompressor = BrotliDecoder::new(bytes.as_slice());
 
             let mut buf = String::new();
             match decompressor.read_to_string(&mut buf) {
@@ -50,10 +48,11 @@ fn sendback<S: AsRef<str>>(api: &TsApi, server: &Server, target: MessageReceiver
             }
         }
         MessageReceiver::Channel => {
-            let own_id = server.get_own_connection_id();
-            match server.get_connection(own_id) {
+            match server.get_own_connection_id().ok()
+                .and_then(|c| server.get_connection(c)) {
                 Some(own_con) => {
-                    match server.get_channel(own_con.get_channel_id()) {
+                    match own_con.get_channel_id().ok()
+                        .and_then(|c| server.get_channel(c)) {
                         Some(chan) => chan.send_message(message),
                         None => Err(Error::VsCritical),
                     }
@@ -69,16 +68,16 @@ fn sendback<S: AsRef<str>>(api: &TsApi, server: &Server, target: MessageReceiver
     }
 }
 
-impl Plugin for MyTsPlugin {
-    fn new(api: &TsApi) -> Result<Box<MyTsPlugin>, InitError> {
+impl Plugin for TsPressor {
+    fn new(api: &mut TsApi) -> Result<Box<Self>, InitError> {
         api.log_or_print("Inited", "tspressor", LogLevel::Info);
-        Ok(Box::new(MyTsPlugin))
+        Ok(Box::new(TsPressor))
         // Or return Err(InitError::Failure) on failure
     }
 
     // Implement callbacks here
     fn message(&mut self,
-               api: &TsApi,
+               api: &mut TsApi,
                server_id: ServerId,
                invoker: Invoker,
                target: MessageReceiver,
@@ -89,7 +88,7 @@ impl Plugin for MyTsPlugin {
         if let Some(server) = server {
             let own_id = server.get_own_connection_id();
 
-            if invoker.get_id() == own_id {
+            if Ok(invoker.get_id()) == own_id {
                 // own message
                 if message.starts_with("--pack") {
                     if let Ok(clip) = ClipboardContext::new().unwrap().get_contents() {
@@ -116,7 +115,7 @@ impl Plugin for MyTsPlugin {
         false
     }
 
-    fn shutdown(&mut self, _: &TsApi) {
+    fn shutdown(&mut self, _: &mut TsApi) {
         // api.log_or_print("TsPressor says goodbyte!", "tspressor", LogLevel::Info);
     }
 }
@@ -128,4 +127,4 @@ create_plugin!("TsPressor",
                 user which have this plugin",
                ConfigureOffer::No,
                false,
-               MyTsPlugin);
+               TsPressor);
