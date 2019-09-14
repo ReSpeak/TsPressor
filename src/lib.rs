@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate ts3plugin;
 extern crate base64;
 extern crate brotli2;
@@ -37,8 +36,8 @@ fn ts3decompress(input: &str) -> Option<String> {
     }
 }
 
-fn sendmsg<S: AsRef<str>>(api: &TsApi, server: &Server, message: S) {
-    server.send_plugin_message(api.get_plugin_id(), message);
+fn sendmsg<S: AsRef<str>>(server: &Server, message: S) {
+    server.send_plugin_message(message);
 }
 
 impl Plugin for TsPressor {
@@ -50,17 +49,16 @@ impl Plugin for TsPressor {
         plugin") }
     fn command() -> Option<String> { Some(String::from("press")) }
 
-    fn new(api: &mut TsApi) -> Result<Box<Self>, InitError> {
+    fn new(api: &TsApi) -> Result<Box<Self>, InitError> {
         api.log_or_print("Inited", "tspressor", LogLevel::Info);
         Ok(Box::new(TsPressor))
     }
 
-    fn process_command(&mut self, api: &mut TsApi, server_id: ServerId,
+    fn process_command(&mut self, api: &TsApi, server: &Server,
         _: String) -> bool {
-        let server = api.get_server(server_id).unwrap();
         if let Ok(clip) = ClipboardContext::new().unwrap().get_contents() {
             if let Some(compresed_output) = ts3compress(&clip) {
-                sendmsg(api, server, compresed_output);
+                sendmsg(server, compresed_output);
                 api.print_message("Ok");
             } else {
                 api.log_or_print("Failed to compress", "tspressor", LogLevel::Info);
@@ -71,8 +69,8 @@ impl Plugin for TsPressor {
         true
     }
 
-    fn plugin_message(&mut self, api: &mut TsApi, _: ServerId,
-        _: String, message: String) {
+    fn plugin_message(&mut self, api: &TsApi, _: &Server,
+        _: String, message: String, _: Option<&Invoker>) {
         if let Some(decomp_str) = ts3decompress(&message) {
             api.print_message(decomp_str);
         }
